@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="24" tilewidth="32" tileheight="32" infinite="0" nextlayerid="7" nextobjectid="110">
+ <imagelayer id="1" name="background">
+  <image source="mushroom_house.png" width="1024" height="768"/>
+ </imagelayer>
+ <objectgroup id="5" name="collision">
+  <object id="91" name="box1" x="205.667" y="567.917" width="93.3333" height="126.75"/>
+  <object id="93" name="box2" x="314.333" y="620.333" width="76.3333" height="72"/>
+  <object id="94" name="chair1" x="654" y="658.849" width="55" height="34.1515"/>
+  <object id="96" name="table" x="682.667" y="254.667" width="142" height="70.6667"/>
+  <object id="97" name="chair2" x="702" y="326.667" width="50" height="45"/>
+  <object id="98" name="chair3" x="767.667" y="326.333" width="48" height="44"/>
+  <object id="99" name="wallup" x="194.605" y="68.2111" width="630.455" height="163.546"/>
+  <object id="100" name="bed" x="439.455" y="230.758" width="150.364" height="92.1818"/>
+  <object id="108" name="wall" x="184" y="235.818">
+   <polygon points="0,0 29.3636,-0.0909091 10,460.932 272.696,458.888 278.174,481.66 381.818,482 382.5,459.568 639,458.932 638.5,-0.909091 641.909,-1 648,-11.8182 658.545,-11.8182 654.875,472.932 386.625,472.182 385,487.182 275.375,486.182 274.5,471.057 3.75,470.932"/>
+  </object>
+  <object id="109" name="mushroom" x="748.5" y="617.75">
+   <polygon points="0,0 18,6 34.5,6 52.5,1 54,9.75 51.5,21.25 40.5,31 27.5,33.5 14.5,33 5.5,24.25 -3.25,16"/>
+  </object>
+ </objectgroup>
+ <objectgroup id="6" name="triggers">
+  <object id="103" name="door" x="462.435" y="698.744" width="102.111" height="17.9834"/>
+ </objectgroup>
+</map>
