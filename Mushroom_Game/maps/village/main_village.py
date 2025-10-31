@@ -134,8 +134,8 @@ def run_village(screen, entry_position=None):
     collision_objects, trigger_objects = load_tiled_collision(get_path("maps", "village", "assets", "village_map.tmx"))
 
     # Player resources
-    standing = pygame.image.load(get_path("assets", "standing.png")).convert_alpha()
-    moving = pygame.image.load(get_path("assets", "moving.png")).convert_alpha()
+    standing = pygame.image.load("Images\standing.png").convert_alpha()
+    moving = pygame.image.load("Images\moving.png").convert_alpha()
     FRAME_W, FRAME_H, SCALE = 32, 32, 4
 
     def get_frames(sheet, frame_w, frame_h):

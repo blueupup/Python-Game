@@ -39,8 +39,8 @@ class Character(pygame.sprite.Sprite):
         self.FRAME_HEIGHT = SPRITE_FRAME_H * SPRITE_SCALE
         self.frame_speed = 0.15
 
-        self.idle_frames = load_sprite_sheet("C:\\Users\\User\\Desktop\\Python-Game\\Images\\standing.png", SPRITE_FRAME_W, SPRITE_FRAME_H, SPRITE_SCALE)
-        self.moving_frames = load_sprite_sheet("C:\\Users\\User\\Desktop\\Python-Game\\Images\\moving.png", SPRITE_FRAME_W, SPRITE_FRAME_H, SPRITE_SCALE)
+        self.idle_frames = load_sprite_sheet("Images\standing.png", SPRITE_FRAME_W, SPRITE_FRAME_H, SPRITE_SCALE)
+        self.moving_frames = load_sprite_sheet("Images\moving.png", SPRITE_FRAME_W, SPRITE_FRAME_H, SPRITE_SCALE)
 
         if not self.idle_frames:
             print("--- CHARACTER ERROR ---")

@@ -21,7 +21,7 @@ def main():
     SCREEN_WIDTH, SCREEN_HEIGHT = 1080, 720
     WORLD_WIDTH, WORLD_HEIGHT = 2000, 2000
     FPS = 60
-    BACKGROUND_IMAGE_PATH = "C:\\Users\\User\\Desktop\\Python-Game\\Images\\rm_GrassPlains_Night.png"
+    BACKGROUND_IMAGE_PATH = "Images\\rm_GrassPlains_Night.png"
 
     Place_Holder_hp_image_path = "Images\pngtree-mushroom-pixel-art-vector-png-image_13852256.png"
 
