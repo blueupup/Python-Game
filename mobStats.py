@@ -11,8 +11,8 @@ class MobStats:
 
         self.xp_reward = xp_reward
 
-        self.aggro_range = aggro_range     # Distance (pixels) to start chasing
-        self.attack_range = attack_range   # Distance (pixels) to stop and attack
+        self.aggro_range = aggro_range
+        self.attack_range = attack_range
         
         # --- Animation Stats ---
         self.anim_speed = anim_speed
@@ -65,20 +65,15 @@ MOB_DATA = {
     }
 }
 
-# --- 2. THE FACTORY FUNCTION ---
-# This is the *only* function your Enemy class should ever call.
+
 def get_stats(mob_type):
-    """
-    Factory function to create a new instance of MobStats.
-    - mob_type (str): The key (e.g., "goblin") to look up in MOB_DATA.
-    """
+
     if mob_type not in MOB_DATA:
         print(f"--- FATAL (mobStats) ---")
         print(f"Unknown mob_type: {mob_type}")
         print(f"Valid types are: {list(MOB_DATA.keys())}")
-        return None # This will cause the Enemy to fail safely
+        return None 
 
-    # Get the dictionary of stats for this mob_type
     stats_dict = MOB_DATA[mob_type]
     
     # Create a new MobStats *instance* using the data

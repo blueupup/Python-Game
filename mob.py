@@ -70,6 +70,10 @@ class Enemy(pygame.sprite.Sprite):
             print(f"--- FATAL: No frames loaded for Enemy at {frames_folder_path} ---")
             self.kill()
             return
+        
+        SPRITE_FRAME_W, SPRITE_FRAME_H, SPRITE_SCALE = 32, 32, 1.5
+        self.FRAME_WIDTH = SPRITE_FRAME_W * SPRITE_SCALE
+        self.FRAME_HEIGHT = SPRITE_FRAME_H * SPRITE_SCALE
             
         self.frame_index = 0
         self.image = self.frames[self.frame_index]
