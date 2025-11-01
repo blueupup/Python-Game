@@ -36,6 +36,9 @@ class CharacterStats:
             self.xp -= self.xp_to_next_level
             self.level_up()
 
+    def character_points(self):
+        pass
+
     def level_up(self):
         self.level += 1
         print(f"Ding! Reached Level {self.level}")

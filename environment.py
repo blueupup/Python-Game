@@ -32,12 +32,19 @@ class Environment:
         pass
 
     def draw(self, screen_surface, camera_offset_x, camera_offset_y):
-        """
-        Draws the visible portion of the environment onto a given surface.
-        
-        screen_surface: The Pygame surface to draw onto (your game screen).
-        camera_offset_x: The X coordinate of the top-left corner of the camera in the world.
-        camera_offset_y: The Y coordinate of the top-left corner of the camera in the world.
-        """
-        source_rect = pygame.Rect(camera_offset_x, camera_offset_y, screen_surface.get_width(), screen_surface.get_height())
-        screen_surface.blit(self.background, (0, 0), area=source_rect)
+        tile_width = self.background.get_width()
+        tile_height = self.background.get_height()
+
+        screen_width = screen_surface.get_width()
+        screen_height = screen_surface.get_height()
+
+        start_x = -(camera_offset_x % tile_width)
+        start_y = -(camera_offset_y % tile_height)
+
+        current_y = start_y
+        while current_y < screen_height:
+            current_x = start_x
+            while current_x < screen_width:
+                screen_surface.blit(self.background, (current_x, current_y))
+                current_x += tile_width
+            current_y += tile_height

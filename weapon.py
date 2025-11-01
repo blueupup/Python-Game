@@ -6,5 +6,5 @@ class Weapon:
         self.attackspeed = attackspeed
 
     def buff()
-
+        
     

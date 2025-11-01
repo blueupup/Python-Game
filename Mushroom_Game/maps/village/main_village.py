@@ -96,7 +96,7 @@ def check_collision_with_objects(player_rect, collision_objects):
                 return True
     return False
 
-# Shadow and player collision box
+# Shadow
 def draw_shadow(surface, player_rect, camera_x, camera_y):
     shadow_width = player_rect.width * 0.6
     shadow_height = player_rect.height * 0.2
