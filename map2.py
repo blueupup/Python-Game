@@ -5,11 +5,10 @@ from character import Character
 from mob import Enemy
 import math
 import random
-from weapon import Weapon
-# --- [FIX] --- Assuming your files are UIManager.py and particle.py
+from weapon import MUSHROOM_SONG, STORM_BLADE
 from UIManager import LevelUpUI, GameOverUI 
 from particle import ParticleManager
-
+from meeleehitbox import MeleeHitbox
 
 class CameraGroup(pygame.sprite.Group):
     def __init__(self):
@@ -47,7 +46,7 @@ def main():
     FPS = 60
     BACKGROUND_IMAGE_PATH = r"Images\unnamed.jpg"
 
-    Place_Holder_hp_image_path = "Images\\pngtree-mushroom-pixel-art-vector-png-image_13852256.png"
+    Place_Holder_hp_image_path = r"Images\pixil-frame-0_1_-removebg-preview.png"
 
     timer_font = pygame.font.SysFont("Arial", 24)
 
@@ -75,22 +74,12 @@ def main():
 
     particle_manager = ParticleManager()
     player.set_particle_manager(particle_manager)
+    player.set_groups(all_sprites, enemy_group)
 
-    mushroom_song = Weapon(
-        name="Mushroom Song",
-        image_path=r"Images\spr_LunaNote_0.png",
-        scale=1,
-        count=4,
-        radius=60,
-        rotation_speed=2.0,
-        weapon_damage=5,
-        hit_cooldown=0.5
-    )
 
-    player.equip_weapon(mushroom_song)
+    player.equip_weapon(STORM_BLADE)
     
     all_sprites.add(player)
-    all_sprites.add(player.orbitals)
 
     level_up_screen = LevelUpUI(
         player, 
@@ -103,6 +92,7 @@ def main():
 
     game_state = 'running'
 
+    # --- Camera Variables ---
     camera_x = 0 
     camera_y = 0
     CAMERA_SMOOTHNESS = 0.05
@@ -111,7 +101,13 @@ def main():
     
     base_spawn_interval = 2.5       
     min_spawn_interval = 0.5        
-    time_to_max_difficulty = 300.0  
+    time_to_max_difficulty = 300.0 
+
+    POINTS_PER_KILL = 50
+    POINTS_PER_SECOND = 1
+
+    total_time = 0.0
+    kill_count = 0
 
     try:
         hp_image_raw = pygame.image.load(Place_Holder_hp_image_path).convert_alpha()
@@ -142,10 +138,14 @@ def main():
             elif game_state == 'game_over':
                 action = game_over_screen.handle_event(event, zoom_level)
                 if action == 'restart':
-                    return 'restart'
+                    return {
+                        "status": "game_over",
+                        "score": game_over_screen.final_score,
+                        "time": game_over_screen.final_time,
+                        "kills": game_over_screen.kill_count
+                    }
 
         if game_state == 'running':
-            # `dt == 0` check is fine here
             if dt == 0: continue 
 
             total_time += dt
@@ -155,6 +155,7 @@ def main():
 
             if keys[pygame.K_l]: # Debug key
                  particle_manager.create_level_up_burst(player.pos.x, player.pos.y)
+
 
             difficulty_progress = min(1.0, total_time / time_to_max_difficulty)
             current_spawn_interval = base_spawn_interval - (base_spawn_interval - min_spawn_interval) * difficulty_progress
@@ -174,19 +175,17 @@ def main():
                         new_enemy = Enemy(
                             x=spawn_x, 
                             y=spawn_y, 
-                            frames_folder_path=r"Images\Slime", 
+                            frames_folder_path=r"Images\spr_BreadDog", 
                             mob_type="slime", 
                             scale=1, 
                             player_level=player.stats.level,
                             particle_manager=particle_manager,
-                            use_mask_collision=True, 
-                            mask_path=r"Images\spr_Soratomo_mask.png"
                         )
                     else: # 50% chance for bunny
                         new_enemy = Enemy(
                             x=spawn_x,
                             y=spawn_y,
-                            frames_folder_path=r"Images\Nousagi",
+                            frames_folder_path=r"Images\spr_Investigaters",
                             mob_type="bunny",
                             scale=1,
                             player_level=player.stats.level,
@@ -209,22 +208,11 @@ def main():
                 xp_reward = enemy.update(dt, player) 
 
                 if xp_reward is not None:
+                    kill_count += 1
                     if player.stats.add_xp(xp_reward):
                         game_state = 'level_up'
                         level_up_screen.activate()
                         print("--- LEVEL UP! --- Pausing game.")
-
-            # --- Collisions ---
-            orbital_hits = pygame.sprite.groupcollide(
-                player.orbitals, 
-                enemy_group, 
-                False, 
-                False,
-                collided=pygame.sprite.collide_rect_ratio(0.8)
-            )
-            for node, enemies_hit in orbital_hits.items():
-                if node.can_attack():
-                    node.deal_damage(enemies_hit[0])
 
             for enemy in enemy_group:
                 if player_hitbox.colliderect(enemy.collision_box):
@@ -240,9 +228,13 @@ def main():
             
             if player.stats.current_health <= 0:
                 game_state = 'game_over'
-                game_over_screen.activate(total_time)
+                score_from_time = int(total_time * POINTS_PER_SECOND)
+                score_from_kills = kill_count * POINTS_PER_KILL
+                final_score = score_from_time + score_from_kills
+                game_over_screen.activate(final_score, total_time, kill_count)
                 print("--- GAME OVER ---")
                 player.kill()
+
         
         # --- Drawing ---
         game_canvas.fill((0,0,0))
@@ -251,16 +243,15 @@ def main():
         particle_manager.draw(game_canvas, camera_x, camera_y)
 
         
+        # --- UI Drawing ---
         if game_state == 'level_up':
             level_up_screen.draw(game_canvas)
         elif game_state == 'game_over':
             game_over_screen.draw(game_canvas)
 
-        # --- Final Scale and Screen UI ---
         screen.fill((0,0,0))
         scaled_canvas = pygame.transform.scale(game_canvas, (SCREEN_WIDTH, SCREEN_HEIGHT))
         screen.blit(scaled_canvas, (0, 0))
-
 
         if game_state != 'game_over':
             total_seconds = int(total_time)
@@ -276,7 +267,6 @@ def main():
 
             current_hp = player.stats.current_health
             max_hp = player.stats.max_health
-            # --- [FIX #9] --- Added max(0, ...) to prevent negative bar
             health_ratio = max(0, current_hp / max_hp) 
 
             bar_width = 200
@@ -294,22 +284,22 @@ def main():
 
         pygame.display.flip()
 
-
-    return 'quit' 
+    return 'quit'
 
 
 if __name__ == "__main__":
     
     while True:
-        action = main() 
+        action = main() # Run the game
         
         if action == 'quit':
-            break 
+            break # Exit the `while True` loop
         
         if action == 'restart':
             print("--- RESTARTING GAME ---")
-            continue
+            continue # Go to the top of the `while True` loop and call main() again
             
+
     print("--- SHUTTING DOWN ---")
     pygame.quit()
     sys.exit()

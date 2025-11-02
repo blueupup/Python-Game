@@ -5,10 +5,10 @@ from character import Character
 from mob import Enemy
 import math
 import random
-from weapon import Weapon
+from weapon import MUSHROOM_SONG, STORM_BLADE
 from UIManager import LevelUpUI, GameOverUI 
 from particle import ParticleManager
-
+from meeleehitbox import MeleeHitbox
 
 class CameraGroup(pygame.sprite.Group):
     def __init__(self):
@@ -46,7 +46,7 @@ def main():
     FPS = 60
     BACKGROUND_IMAGE_PATH = "Images\\rm_GrassPlains_Night.png"
 
-    Place_Holder_hp_image_path = "Images\\pngtree-mushroom-pixel-art-vector-png-image_13852256.png"
+    Place_Holder_hp_image_path = r"Images\pixil-frame-0_1_-removebg-preview.png"
 
     timer_font = pygame.font.SysFont("Arial", 24)
 
@@ -74,22 +74,12 @@ def main():
 
     particle_manager = ParticleManager()
     player.set_particle_manager(particle_manager)
+    player.set_groups(all_sprites, enemy_group)
 
-    mushroom_song = Weapon(
-        name="Mushroom Song",
-        image_path=r"Images\spr_LunaNote_0.png",
-        scale=1,
-        count=4,
-        radius=60,
-        rotation_speed=2.0,
-        weapon_damage=5,
-        hit_cooldown=0.5
-    )
 
-    player.equip_weapon(mushroom_song)
+    player.equip_weapon(MUSHROOM_SONG)
     
     all_sprites.add(player)
-    all_sprites.add(player.orbitals)
 
     level_up_screen = LevelUpUI(
         player, 
@@ -111,7 +101,13 @@ def main():
     
     base_spawn_interval = 2.5       
     min_spawn_interval = 0.5        
-    time_to_max_difficulty = 300.0  
+    time_to_max_difficulty = 300.0 
+
+    POINTS_PER_KILL = 50
+    POINTS_PER_SECOND = 1
+
+    total_time = 0.0
+    kill_count = 0
 
     try:
         hp_image_raw = pygame.image.load(Place_Holder_hp_image_path).convert_alpha()
@@ -142,7 +138,12 @@ def main():
             elif game_state == 'game_over':
                 action = game_over_screen.handle_event(event, zoom_level)
                 if action == 'restart':
-                    return 'restart'
+                    return {
+                        "status": "game_over",
+                        "score": game_over_screen.final_score,
+                        "time": game_over_screen.final_time,
+                        "kills": game_over_screen.kill_count
+                    }
 
         if game_state == 'running':
             if dt == 0: continue 
@@ -209,22 +210,11 @@ def main():
                 xp_reward = enemy.update(dt, player) 
 
                 if xp_reward is not None:
+                    kill_count += 1
                     if player.stats.add_xp(xp_reward):
                         game_state = 'level_up'
                         level_up_screen.activate()
                         print("--- LEVEL UP! --- Pausing game.")
-
-            # --- Collisions ---
-            orbital_hits = pygame.sprite.groupcollide(
-                player.orbitals, 
-                enemy_group, 
-                False, 
-                False,
-                collided=pygame.sprite.collide_rect_ratio(0.8)
-            )
-            for node, enemies_hit in orbital_hits.items():
-                if node.can_attack():
-                    node.deal_damage(enemies_hit[0])
 
             for enemy in enemy_group:
                 if player_hitbox.colliderect(enemy.collision_box):
@@ -240,7 +230,10 @@ def main():
             
             if player.stats.current_health <= 0:
                 game_state = 'game_over'
-                game_over_screen.activate(total_time)
+                score_from_time = int(total_time * POINTS_PER_SECOND)
+                score_from_kills = kill_count * POINTS_PER_KILL
+                final_score = score_from_time + score_from_kills
+                game_over_screen.activate(final_score, total_time, kill_count)
                 print("--- GAME OVER ---")
                 player.kill()
 
@@ -296,10 +289,6 @@ def main():
     return 'quit'
 
 
-# --- [FIX #11] ---
-# This is the most important change.
-# This loop *manages* the game. It calls main()
-# and restarts it or quits based on what main() returns.
 if __name__ == "__main__":
     
     while True:
@@ -312,8 +301,7 @@ if __name__ == "__main__":
             print("--- RESTARTING GAME ---")
             continue # Go to the top of the `while True` loop and call main() again
             
-    # --- [FIX #12] ---
-    # The *only* place quit and exit should be called.
+
     print("--- SHUTTING DOWN ---")
     pygame.quit()
     sys.exit()

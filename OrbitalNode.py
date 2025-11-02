@@ -2,14 +2,17 @@ import pygame
 import math
 
 class OrbitalNode(pygame.sprite.Sprite):
-    def __init__(self, player, radius, rotation_speed, weapon_damage, hit_cooldown, image, start_angle):
+    def __init__(self, player, radius, rotation_speed, weapon_damage, hit_cooldown, image, start_angle,particle_manager, enemy_group):
         super().__init__()
         
         # --- Core Properties ---
-        self.player = player  # CRITICAL: A reference to the player sprite
+        self.player = player
         self.radius = radius
         self.rotation_speed = rotation_speed
         self.angle = start_angle  # Its starting position on the circle (in radians)
+
+        self.enemy_group = enemy_group
+        self.particle_manager = particle_manager
         
         # --- Image / Rect ---
         self.base_image = image  # The "clean" loaded image
@@ -39,18 +42,19 @@ class OrbitalNode(pygame.sprite.Sprite):
         # 2. Trigger flash
         self.is_flashing = True
         self.flash_timer = 0.0
-        
-        total_damage = self.player.stats.base_attack + self.weapon_damage
+    
+        if self.particle_manager:
+                    self.particle_manager.create_hit_effect(self.rect.centerx, self.rect.centery)
+
+        total_damage = self.player.stats.attack_power + self.weapon_damage
 
         print(f"[COMBAT] OrbitalNode hit {enemy_target.stats.name} for {total_damage} damage!")
         enemy_target.take_damage(total_damage)
 
     def update(self, dt):
-        # --- 1. Update Cooldowns ---
         if self.hit_timer > 0:
             self.hit_timer -= dt
             
-        # --- 2. Update Position (The "Orbit") ---
         self.angle += self.rotation_speed * dt
         
         # Keep angle from getting huge (optional, but clean)
@@ -64,9 +68,16 @@ class OrbitalNode(pygame.sprite.Sprite):
         self.pos_y = center_y + self.radius * math.sin(self.angle)
         
         self.rect.center = (int(self.pos_x), int(self.pos_y))
-        
-        # --- 3. Update Visual Effects (Flash) ---
-        # Always start by resetting the image to the clean base
+        if self.can_attack():
+            # Use collide_rect_ratio for a smaller hitbox
+            collided_list = pygame.sprite.spritecollide(
+                self, self.enemy_group, False, 
+                collided=pygame.sprite.collide_rect_ratio(0.8)
+            )
+            if collided_list:
+                # Hit the first enemy in the list
+                self.deal_damage(collided_list[0])
+
         self.image = self.base_image.copy() 
         
         if self.is_flashing:

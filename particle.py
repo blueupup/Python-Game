@@ -76,9 +76,11 @@ class DeathBurst(Particle):
 
 # This one object will control all world particles.
 class ParticleManager:
-    def __init__(self):
+    def __init__(self, hit_sound =None, levelup = None):
         # We use a set for faster removals
         self.particles = set()
+        self.hit_sound = hit_sound
+        self.levelup_sound = levelup
 
     def update(self, dt):
 

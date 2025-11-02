@@ -120,20 +120,34 @@ class GameOverUI:
         self.title_font = pygame.font.SysFont("Arial", 64, bold=True)
         self.stat_font = pygame.font.SysFont("Arial", 32)
         self.btn_font = pygame.font.SysFont("Arial", 28)
+        self.score_font = pygame.font.SysFont("Arial", 40, bold=True)
         
         self.final_time_str = ""
+        self.final_kills_str = ""
+        self.final_score_str = ""
         
+        self.final_score = 0
+        self.final_time = 0
+        self.kill_count = 0
+
         btn_w, btn_h = 250, 60
-        btn_y = self.canvas_height * 0.6
+        btn_y = self.canvas_height * 0.65
         
         # Center the single button
         self.continue_btn_rect = pygame.Rect(0, 0, btn_w, btn_h)
         self.continue_btn_rect.center = (self.canvas_width // 2, btn_y)
 
-    def activate(self, final_time):
+    def activate(self, final_score, final_time, kill_count):
         minutes = int(final_time) // 60
         seconds = int(final_time) % 60
         self.final_time_str = f"Time Survived: {minutes:02}:{seconds:02}"
+
+        self.final_kills_str = f"Enemies Slain: {kill_count}"
+        self.final_score_str = f"Final Score: {final_score}"
+
+        self.final_score = final_score
+        self.final_time = final_time
+        self.kill_count = kill_count
 
     def handle_event(self, event, zoom_level):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -159,10 +173,17 @@ class GameOverUI:
         title_rect.center = (self.canvas_width // 2, self.canvas_height * 0.25)
         draw_text(game_canvas, "GAME OVER", self.title_font, (220, 0, 0), title_rect)
         
-        #Draw Final Time
-        stat_rect = pygame.Rect(0, 0, self.canvas_width, 50)
-        stat_rect.center = (self.canvas_width // 2, self.canvas_height * 0.4)
-        draw_text(game_canvas, self.final_time_str, self.stat_font, (255, 255, 255), stat_rect)
+        time_rect = pygame.Rect(0, 0, self.canvas_width, 50)
+        time_rect.center = (self.canvas_width // 2, self.canvas_height * 0.40)
+        draw_text(game_canvas, self.final_time_str, self.stat_font, (255, 255, 255), time_rect)
+        
+        kills_rect = pygame.Rect(0, 0, self.canvas_width, 50)
+        kills_rect.center = (self.canvas_width // 2, self.canvas_height * 0.45)
+        draw_text(game_canvas, self.final_kills_str, self.stat_font, (255, 255, 255), kills_rect)
+        
+        score_rect = pygame.Rect(0, 0, self.canvas_width, 60)
+        score_rect.center = (self.canvas_width // 2, self.canvas_height * 0.52)
+        draw_text(game_canvas, self.final_score_str, self.score_font, (255, 255, 100), score_rect)
         
         #Draw "Continue" Button
         pygame.draw.rect(game_canvas, (80, 80, 80), self.continue_btn_rect, border_radius=10)

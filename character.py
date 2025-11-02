@@ -1,8 +1,9 @@
 import pygame
 from CharacterStats import CharacterStats 
-from inventory import Inventory
 from OrbitalNode import OrbitalNode
 from particle import ParticleManager
+from meeleehitbox import MeleeHitbox 
+from meleesprite import MeleeWeaponSprite
 import math
 
 def load_sprite_sheet(sheet_path, frame_width, frame_height, scale):
@@ -39,10 +40,16 @@ class Character(pygame.sprite.Sprite):
         self.pos = pygame.math.Vector2(x, y)
 
         self.stats = CharacterStats(level=1, base_health=50, base_attack=10)
-        self.inventory = Inventory()
+        
+        self.all_sprites_group = None 
+        self.enemy_group = None
+        self.particle_manager = None
 
         self.orbitals = pygame.sprite.Group()
+        self.melee_hitboxes = pygame.sprite.Group() # Holds active swings
+        self.visible_weapon_sprites = pygame.sprite.Group()
         self.active_weapon = None
+        self.attack_timer = 0.0 # Cooldown for melee attackse
 
         self.is_iframes = False
         self.iframe_duration = 1.0
@@ -117,15 +124,36 @@ class Character(pygame.sprite.Sprite):
     def set_particle_manager(self, manager):
         self.particle_manager = manager
 
+    def set_groups(self, all_sprites, enemy_group):
+        self.all_sprites_group = all_sprites
+        self.enemy_group = enemy_group
+
     def equip_weapon(self, weapon_blueprint):
+
+        print(f"[EQUIP] Equipping {weapon_blueprint.name}")
+        
         for node in self.orbitals:
             node.kill()
-        self.orbitals.empty()
+        for hitbox in self.melee_hitboxes:
+            hitbox.kill()
+        for sprite in self.visible_weapon_sprites:
+            sprite.kill()
+
         self.active_weapon = weapon_blueprint
+        self.attack_timer = 0.0 # Ready to attack
+        
+        if self.active_weapon.weapon_type == "orbital":
+            self.setup_orbital_weapon() 
+        
+        elif self.active_weapon.weapon_type == "melee":
+            self.attack_timer = self.active_weapon.hit_cooldown
+            print(f"Equipped melee: {self.active_weapon.name}")
 
-        if self.active_weapon is None:
+    def setup_orbital_weapon(self):
+        if self.enemy_group is None or self.all_sprites_group is None:
+            print("--- FATAL (Character): Cannot setup orbitals, groups not set!")
             return
-
+            
         # Load the graphic
         try:
             image = pygame.image.load(self.active_weapon.image_path).convert_alpha()
@@ -138,10 +166,7 @@ class Character(pygame.sprite.Sprite):
             image = pygame.Surface((10, 10))
             image.fill((255, 0, 255))
 
-        # Create the nodes
         count = self.active_weapon.count
-        
-        # Calculate the angle step to space them out evenly (2*pi radians is a full circle)
         angle_step = (2 * math.pi) / count 
         
         for i in range(count):
@@ -153,11 +178,42 @@ class Character(pygame.sprite.Sprite):
                 weapon_damage=self.active_weapon.weapon_damage,
                 hit_cooldown=self.active_weapon.hit_cooldown,
                 image=image,
-                start_angle=start_angle
+                start_angle=start_angle,
+                particle_manager=self.particle_manager, # Pass refs
+                enemy_group=self.enemy_group           # Pass refs
             )
             self.orbitals.add(node)
-        
+            self.all_sprites_group.add(node) # Add to main draw group!
+            
         print(f"Equipped {self.active_weapon.name} with {count} nodes.")
+
+    def attack(self):
+        if self.active_weapon is None or self.enemy_group is None:
+            return
+
+        if self.active_weapon.weapon_type == "melee":
+            # Reset cooldown
+            self.attack_timer = self.active_weapon.hit_cooldown
+            
+            # Create the hitbox
+            hitbox = MeleeHitbox(
+                self, 
+                self.active_weapon, 
+                self.enemy_group, 
+                self.particle_manager
+            )
+            
+            self.melee_hitboxes.add(hitbox)
+            if self.all_sprites_group is not None:
+                self.all_sprites_group.add(hitbox)
+                
+            weapon_sprite = MeleeWeaponSprite(
+                self, 
+                self.active_weapon
+            )
+            self.visible_weapon_sprites.add(weapon_sprite)
+            if self.all_sprites_group is not None:
+                self.all_sprites_group.add(weapon_sprite)
 
 
     def draw_shadow(self, surface, screen_x, screen_y):
@@ -165,7 +221,6 @@ class Character(pygame.sprite.Sprite):
             shadow_x = int(screen_x + self.shadow_offset_x)
             shadow_y = int(screen_y + self.shadow_offset_y)
             
-            # 2. Blit the pre-rendered shadow
             surface.blit(self.shadow_image, (shadow_x, shadow_y))
 
     def take_damage(self, amount):
@@ -256,11 +311,7 @@ class Character(pygame.sprite.Sprite):
                     # Flip the flash state
                     self.flash_toggle = not self.flash_toggle
                 
-                # Apply flash if the toggle is "off" (False)
                 if not self.flash_toggle:
-                    # This fill command adds (170, 170, 170) to every pixel,
-                    # creating a "white flash" effect.
-                    # You can adjust the (R, G, B) values for a stronger/weaker tint.
                     self.image.fill((170, 170, 170), special_flags=pygame.BLEND_RGB_ADD)
                 
                 # (If self.flash_toggle is True, we do nothing,
@@ -270,5 +321,15 @@ class Character(pygame.sprite.Sprite):
             if self.image.get_alpha() != 255:
                 self.image.set_alpha(255)
         
+        if self.active_weapon:
+            self.attack_timer -= dt
+            
+            # Check if we should auto-attack
+            if self.attack_timer <= 0:
+                self.attack() # Call the new attack method
+        
+
         self.orbitals.update(dt)
+        self.melee_hitboxes.update(dt)
+        self.visible_weapon_sprites.update(dt)
 
