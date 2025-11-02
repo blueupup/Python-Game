@@ -100,7 +100,7 @@ def main():
 
     game_over_screen = GameOverUI(GAME_CANVAS_WIDTH, GAME_CANVAS_HEIGHT)
 
-    game_state = 'running' # 'running', 'level_up', 'game_over'
+    game_state = 'running'
 
     # --- Camera Variables ---
     camera_x = 0 
@@ -109,7 +109,6 @@ def main():
 
     spawn_timer = 0.0
     
-    # --- [FIX] --- Renamed for clarity, using the dynamic logic from before
     base_spawn_interval = 2.5       
     min_spawn_interval = 0.5        
     time_to_max_difficulty = 300.0  
@@ -125,21 +124,14 @@ def main():
     running = True
     while running:
         
-        # --- [FIX #1] ---
-        # `dt` MUST be calculated *outside* the 'running' state.
-        # Otherwise, `particle_manager.update(dt)` will crash when paused.
         dt = clock.tick(FPS) / 1000.0
         
-        # --- [FIX #2] ---
-        # Particle manager MUST update every frame, even when paused.
         particle_manager.update(dt) 
 
         events = pygame.event.get()
         
         for event in events:
             if event.type == pygame.QUIT:
-                # --- [FIX #3] ---
-                # This tells the *outer loop* (in __main__) to quit.
                 return 'quit' 
 
             if game_state == 'level_up':
@@ -150,12 +142,9 @@ def main():
             elif game_state == 'game_over':
                 action = game_over_screen.handle_event(event, zoom_level)
                 if action == 'restart':
-                    # --- [FIX #4] ---
-                    # This tells the *outer loop* to restart.
                     return 'restart'
 
         if game_state == 'running':
-            # `dt == 0` check is fine here
             if dt == 0: continue 
 
             total_time += dt
@@ -166,8 +155,7 @@ def main():
             if keys[pygame.K_l]: # Debug key
                  particle_manager.create_level_up_burst(player.pos.x, player.pos.y)
 
-            # --- [FIX #5] ---
-            # Using the dynamic spawn rate logic
+
             difficulty_progress = min(1.0, total_time / time_to_max_difficulty)
             current_spawn_interval = base_spawn_interval - (base_spawn_interval - min_spawn_interval) * difficulty_progress
             
@@ -208,7 +196,6 @@ def main():
                     all_sprites.add(new_enemy)
                     enemy_group.add(new_enemy)
                     
-                    # print(f"--- A new {new_enemy.stats.name} spawned! ---") # Optional: noisy
                     
                 except Exception as e:
                     print(f"FATAL: Error spawning enemy: {e}")
@@ -251,16 +238,12 @@ def main():
                 CAMERA_SMOOTHNESS
             )
             
-            # --- [FIX #6] ---
-            # The Game Over check MUST be *inside* the 'running' state.
-            # Otherwise, you check for death even *after* you've died.
             if player.stats.current_health <= 0:
                 game_state = 'game_over'
                 game_over_screen.activate(total_time)
                 print("--- GAME OVER ---")
                 player.kill()
 
-        # --- [MOVED] particle_manager.update(dt) is now at the top of the loop
         
         # --- Drawing ---
         game_canvas.fill((0,0,0))
@@ -268,24 +251,17 @@ def main():
         all_sprites.draw(game_canvas, camera_x, camera_y)
         particle_manager.draw(game_canvas, camera_x, camera_y)
 
-        # --- DEBUG DRAWING ---
-        # (Your debug code is correctly commented out)
         
         # --- UI Drawing ---
         if game_state == 'level_up':
             level_up_screen.draw(game_canvas)
         elif game_state == 'game_over':
-            # --- [FIX #7] ---
-            # Added the missing 'elif' to draw the game over screen
             game_over_screen.draw(game_canvas)
 
-        # --- Final Scale and Screen UI ---
         screen.fill((0,0,0))
         scaled_canvas = pygame.transform.scale(game_canvas, (SCREEN_WIDTH, SCREEN_HEIGHT))
         screen.blit(scaled_canvas, (0, 0))
 
-        # --- [FIX #8] ---
-        # The HUD should *not* draw when the game is over.
         if game_state != 'game_over':
             total_seconds = int(total_time)
             minutes = total_seconds // 60
@@ -300,7 +276,6 @@ def main():
 
             current_hp = player.stats.current_health
             max_hp = player.stats.max_health
-            # --- [FIX #9] --- Added max(0, ...) to prevent negative bar
             health_ratio = max(0, current_hp / max_hp) 
 
             bar_width = 200
@@ -318,9 +293,7 @@ def main():
 
         pygame.display.flip()
 
-    # --- [FIX #10] ---
-    # We must NOT quit pygame inside main(). We return 'quit' instead.
-    return 'quit' # Failsafe if the loop breaks unexpectedly
+    return 'quit'
 
 
 # --- [FIX #11] ---
