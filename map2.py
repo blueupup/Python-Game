@@ -6,6 +6,7 @@ from mob import Enemy
 import math
 import random
 from weapon import Weapon
+# --- [FIX] --- Assuming your files are UIManager.py and particle.py
 from UIManager import LevelUpUI, GameOverUI 
 from particle import ParticleManager
 
@@ -44,7 +45,7 @@ def main():
     SCREEN_WIDTH, SCREEN_HEIGHT = 1080, 720
     WORLD_WIDTH, WORLD_HEIGHT = 3500,3500
     FPS = 60
-    BACKGROUND_IMAGE_PATH = "Images\\rm_GrassPlains_Night.png"
+    BACKGROUND_IMAGE_PATH = r"Images\unnamed.jpg"
 
     Place_Holder_hp_image_path = "Images\\pngtree-mushroom-pixel-art-vector-png-image_13852256.png"
 
@@ -100,16 +101,14 @@ def main():
 
     game_over_screen = GameOverUI(GAME_CANVAS_WIDTH, GAME_CANVAS_HEIGHT)
 
-    game_state = 'running' # 'running', 'level_up', 'game_over'
+    game_state = 'running'
 
-    # --- Camera Variables ---
     camera_x = 0 
     camera_y = 0
     CAMERA_SMOOTHNESS = 0.05
 
     spawn_timer = 0.0
     
-    # --- [FIX] --- Renamed for clarity, using the dynamic logic from before
     base_spawn_interval = 2.5       
     min_spawn_interval = 0.5        
     time_to_max_difficulty = 300.0  
@@ -125,21 +124,14 @@ def main():
     running = True
     while running:
         
-        # --- [FIX #1] ---
-        # `dt` MUST be calculated *outside* the 'running' state.
-        # Otherwise, `particle_manager.update(dt)` will crash when paused.
         dt = clock.tick(FPS) / 1000.0
         
-        # --- [FIX #2] ---
-        # Particle manager MUST update every frame, even when paused.
         particle_manager.update(dt) 
 
         events = pygame.event.get()
         
         for event in events:
             if event.type == pygame.QUIT:
-                # --- [FIX #3] ---
-                # This tells the *outer loop* (in __main__) to quit.
                 return 'quit' 
 
             if game_state == 'level_up':
@@ -150,8 +142,6 @@ def main():
             elif game_state == 'game_over':
                 action = game_over_screen.handle_event(event, zoom_level)
                 if action == 'restart':
-                    # --- [FIX #4] ---
-                    # This tells the *outer loop* to restart.
                     return 'restart'
 
         if game_state == 'running':
@@ -166,8 +156,6 @@ def main():
             if keys[pygame.K_l]: # Debug key
                  particle_manager.create_level_up_burst(player.pos.x, player.pos.y)
 
-            # --- [FIX #5] ---
-            # Using the dynamic spawn rate logic
             difficulty_progress = min(1.0, total_time / time_to_max_difficulty)
             current_spawn_interval = base_spawn_interval - (base_spawn_interval - min_spawn_interval) * difficulty_progress
             
@@ -208,7 +196,6 @@ def main():
                     all_sprites.add(new_enemy)
                     enemy_group.add(new_enemy)
                     
-                    # print(f"--- A new {new_enemy.stats.name} spawned! ---") # Optional: noisy
                     
                 except Exception as e:
                     print(f"FATAL: Error spawning enemy: {e}")
@@ -251,16 +238,11 @@ def main():
                 CAMERA_SMOOTHNESS
             )
             
-            # --- [FIX #6] ---
-            # The Game Over check MUST be *inside* the 'running' state.
-            # Otherwise, you check for death even *after* you've died.
             if player.stats.current_health <= 0:
                 game_state = 'game_over'
                 game_over_screen.activate(total_time)
                 print("--- GAME OVER ---")
                 player.kill()
-
-        # --- [MOVED] particle_manager.update(dt) is now at the top of the loop
         
         # --- Drawing ---
         game_canvas.fill((0,0,0))
@@ -268,15 +250,10 @@ def main():
         all_sprites.draw(game_canvas, camera_x, camera_y)
         particle_manager.draw(game_canvas, camera_x, camera_y)
 
-        # --- DEBUG DRAWING ---
-        # (Your debug code is correctly commented out)
         
-        # --- UI Drawing ---
         if game_state == 'level_up':
             level_up_screen.draw(game_canvas)
         elif game_state == 'game_over':
-            # --- [FIX #7] ---
-            # Added the missing 'elif' to draw the game over screen
             game_over_screen.draw(game_canvas)
 
         # --- Final Scale and Screen UI ---
@@ -284,8 +261,7 @@ def main():
         scaled_canvas = pygame.transform.scale(game_canvas, (SCREEN_WIDTH, SCREEN_HEIGHT))
         screen.blit(scaled_canvas, (0, 0))
 
-        # --- [FIX #8] ---
-        # The HUD should *not* draw when the game is over.
+
         if game_state != 'game_over':
             total_seconds = int(total_time)
             minutes = total_seconds // 60
@@ -318,29 +294,22 @@ def main():
 
         pygame.display.flip()
 
-    # --- [FIX #10] ---
-    # We must NOT quit pygame inside main(). We return 'quit' instead.
-    return 'quit' # Failsafe if the loop breaks unexpectedly
+
+    return 'quit' 
 
 
-# --- [FIX #11] ---
-# This is the most important change.
-# This loop *manages* the game. It calls main()
-# and restarts it or quits based on what main() returns.
 if __name__ == "__main__":
     
     while True:
-        action = main() # Run the game
+        action = main() 
         
         if action == 'quit':
-            break # Exit the `while True` loop
+            break 
         
         if action == 'restart':
             print("--- RESTARTING GAME ---")
-            continue # Go to the top of the `while True` loop and call main() again
+            continue
             
-    # --- [FIX #12] ---
-    # The *only* place quit and exit should be called.
     print("--- SHUTTING DOWN ---")
     pygame.quit()
     sys.exit()

@@ -1,6 +1,9 @@
 import pygame
 from CharacterStats import CharacterStats 
 from inventory import Inventory
+from OrbitalNode import OrbitalNode
+from particle import ParticleManager
+import math
 
 def load_sprite_sheet(sheet_path, frame_width, frame_height, scale):
     try:
@@ -35,8 +38,11 @@ class Character(pygame.sprite.Sprite):
 
         self.pos = pygame.math.Vector2(x, y)
 
-        self.stats = CharacterStats(level=1, base_health=100, base_attack=10)
+        self.stats = CharacterStats(level=1, base_health=50, base_attack=10)
         self.inventory = Inventory()
+
+        self.orbitals = pygame.sprite.Group()
+        self.active_weapon = None
 
         self.is_iframes = False
         self.iframe_duration = 1.0
@@ -45,6 +51,7 @@ class Character(pygame.sprite.Sprite):
         self.flash_interval = 0.2
         self.flash_timer = 0.0
 
+
         SPRITE_FRAME_W, SPRITE_FRAME_H, SPRITE_SCALE = 32, 32, 1.5
         self.FRAME_WIDTH = SPRITE_FRAME_W * SPRITE_SCALE
         self.FRAME_HEIGHT = SPRITE_FRAME_H * SPRITE_SCALE
@@ -52,6 +59,8 @@ class Character(pygame.sprite.Sprite):
 
         self.frame_index = 0
         self.frame_timer = 0.0
+        self.flash_toggle = True
+
 
         self.idle_frames = load_sprite_sheet("Images\standing.png", SPRITE_FRAME_W, SPRITE_FRAME_H, SPRITE_SCALE)
         self.moving_frames = load_sprite_sheet("Images\moving.png", SPRITE_FRAME_W, SPRITE_FRAME_H, SPRITE_SCALE)
@@ -69,7 +78,7 @@ class Character(pygame.sprite.Sprite):
         self.image = self.idle_frames[self.frame_index]
         self.rect = self.image.get_rect(center=(int(self.pos.x), int(self.pos.y)))
 
-        self.collision_box = self.rect.inflate(-self.rect.width * 0.2, -self.rect.height * 0.2)
+        self.mask = pygame.mask.from_surface(self.image)
 
         shadow_width = int(self.rect.width * 0.6)
         shadow_height = int(self.rect.height * 0.2)
@@ -105,6 +114,51 @@ class Character(pygame.sprite.Sprite):
         self.collision_box.center = self.rect.center
         return self.collision_box
     
+    def set_particle_manager(self, manager):
+        self.particle_manager = manager
+
+    def equip_weapon(self, weapon_blueprint):
+        for node in self.orbitals:
+            node.kill()
+        self.orbitals.empty()
+        self.active_weapon = weapon_blueprint
+
+        if self.active_weapon is None:
+            return
+
+        # Load the graphic
+        try:
+            image = pygame.image.load(self.active_weapon.image_path).convert_alpha()
+            w, h = image.get_size()
+            scale = self.active_weapon.scale
+            image = pygame.transform.scale(image, (int(w * scale), int(h * scale)))
+        except Exception as e:
+            print(f"--- WEAPON ERROR: Failed to load image {self.active_weapon.image_path} ---")
+            print(e)
+            image = pygame.Surface((10, 10))
+            image.fill((255, 0, 255))
+
+        # Create the nodes
+        count = self.active_weapon.count
+        
+        # Calculate the angle step to space them out evenly (2*pi radians is a full circle)
+        angle_step = (2 * math.pi) / count 
+        
+        for i in range(count):
+            start_angle = i * angle_step
+            node = OrbitalNode(
+                player=self,
+                radius=self.active_weapon.radius,
+                rotation_speed=self.active_weapon.rotation_speed,
+                weapon_damage=self.active_weapon.weapon_damage,
+                hit_cooldown=self.active_weapon.hit_cooldown,
+                image=image,
+                start_angle=start_angle
+            )
+            self.orbitals.add(node)
+        
+        print(f"Equipped {self.active_weapon.name} with {count} nodes.")
+
 
     def draw_shadow(self, surface, screen_x, screen_y):
         if self.shadow_image:
@@ -117,6 +171,10 @@ class Character(pygame.sprite.Sprite):
     def take_damage(self, amount):
             if self.is_iframes:
                 return
+            
+            if self.particle_manager:
+                self.particle_manager.create_player_damage_effect(self.pos.x, self.pos.y)
+
             is_dead = self.stats.take_damage(amount)
 
             if is_dead:
@@ -125,8 +183,10 @@ class Character(pygame.sprite.Sprite):
                 self.is_iframes = True
                 self.iframe_timer = 0.0
                 self.flash_timer = 0.0
-        
+                self.flash_toggle = True
     
+    def special_effect():
+        pass
 
     def update(self, dt, keys):
     
@@ -141,8 +201,6 @@ class Character(pygame.sprite.Sprite):
         if self.is_moving:
             move_vector = move_vector.normalize()
 
-            # --- SIMPLIFIED MOVEMENT ---
-            # No checks needed. Just move the float-based position.
             self.pos += move_vector * move_amount
             
             # Update the integer rect from the float vector
@@ -178,8 +236,6 @@ class Character(pygame.sprite.Sprite):
         if not self.facing_right:
             self.image = pygame.transform.flip(self.image, True, False)
 
-        # --- 5. Handle Iframes (Correctly) ---
-        # The ENTIRE logic block must be nested.
         if self.is_iframes:
             # Increment timers
             self.iframe_timer += dt
@@ -187,38 +243,32 @@ class Character(pygame.sprite.Sprite):
 
             # Check if it's time to end invincibility
             if self.iframe_timer >= self.iframe_duration:
-                self.is_iframes = False # <-- Use the correct variable
+                self.is_iframes = False
                 self.iframe_timer = 0
                 self.flash_timer = 0
+                self.flash_toggle = True  # Reset toggle
                 self.image.set_alpha(255) # Ensure visibility is reset
             
             # Handle flashing *only if* duration is not over
             else:
                 if self.flash_timer >= self.flash_interval:
                     self.flash_timer = 0
-                    # Flicker logic
-                    if self.image.get_alpha() == 255:
-                        self.image.set_alpha(100)
-                    else:
-                        self.image.set_alpha(255)
-                        
-        # This block now ONLY runs when not invincible
+                    # Flip the flash state
+                    self.flash_toggle = not self.flash_toggle
+                
+                # Apply flash if the toggle is "off" (False)
+                if not self.flash_toggle:
+                    # This fill command adds (170, 170, 170) to every pixel,
+                    # creating a "white flash" effect.
+                    # You can adjust the (R, G, B) values for a stronger/weaker tint.
+                    self.image.fill((170, 170, 170), special_flags=pygame.BLEND_RGB_ADD)
+                
+                # (If self.flash_toggle is True, we do nothing,
+                #  letting the normal sprite from section 4 draw)
+
         else:
-            # Failsafe: If alpha wasn't 255, reset it.
             if self.image.get_alpha() != 255:
                 self.image.set_alpha(255)
-
-
-    # def draw(self, screen_surface, camera_x, camera_y):
-    #     """Draws the player relative to the camera."""
-    #     screen_x = self.rect.x - camera_x
-    #     screen_y = self.rect.y - camera_y
-    #     screen_surface.blit(self.image, (screen_x, screen_y))
         
-    #     # --- (DEBUG) Draw the collision box ---
-    #     col_box_screen_x = self.collision_box.x - camera_x
-    #     col_box_screen_y = self.collision_box.y - camera_y
-    #     debug_col_rect = pygame.Rect(col_box_screen_x, col_box_screen_y, 
-    #                                 self.collision_box.width, self.collision_box.height)
-    #     pygame.draw.rect(screen_surface, (0, 255, 0), debug_col_rect, 2)
+        self.orbitals.update(dt)
 

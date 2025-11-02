@@ -3,12 +3,13 @@ from mobStats import MobStats
 from mobStats import get_stats
 import os
 import sys
+from particle import ParticleManager
+
 
 def load_frames_from_folder(folder_path, scale):
     frames = []
     
     try:
-        # Get all filenames in the folder
         filenames = os.listdir(folder_path)
     except FileNotFoundError:
         print(f"--- FATAL ERROR (Folder Load) ---")
@@ -45,131 +46,184 @@ def load_frames_from_folder(folder_path, scale):
     return frames
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, x, y, frames_folder_path, mob_type, scale, player_level):
+    def __init__(self, x, y, frames_folder_path, mob_type, scale, player_level, particle_manager, use_mask_collision=False, mask_path=None):
         super().__init__()
-        
-        try:
-            # Call your new factory function directly
-            self.stats = get_stats(mob_type)
-            
-            # This check is critical.
-            # get_stats() returns None if the mob_type is invalid.
-            if self.stats is None:
-                # This will be caught by the except block
-                raise ValueError(f"Failed to get stats for mob_type: {mob_type}")
 
-        except Exception as e:
-            print(f"--- FATAL: Failed to initialize stats for {mob_type} ---")
-            print(e)
-            raise
+        # --- 1. Stats ---
+        self.stats = get_stats(mob_type)
+        if self.stats is None:
+            raise ValueError(f"Failed to get stats for mob_type: {mob_type}")
+        self.scale_to_player_level(player_level)
+        self.particle_manager = particle_manager
 
-        self.scale_to_player_level(player_level) 
-
+        # --- 2. Animation ---
         self.frames = load_frames_from_folder(frames_folder_path, scale)
         if not self.frames:
             print(f"--- FATAL: No frames loaded for Enemy at {frames_folder_path} ---")
-            self.kill()
-            return
+            fallback = pygame.Surface((32 * scale, 32 * scale))
+            fallback.fill((255, 0, 0))
+            self.frames = [fallback]
         
-        SPRITE_FRAME_W, SPRITE_FRAME_H, SPRITE_SCALE = 32, 32, 1.5
-        self.FRAME_WIDTH = SPRITE_FRAME_W * SPRITE_SCALE
-        self.FRAME_HEIGHT = SPRITE_FRAME_H * SPRITE_SCALE
-            
         self.frame_index = 0
-        self.image = self.frames[self.frame_index]
+        
+        # --- STRUCTURAL FIX: Base vs. Drawn Image ---
+        # self.base_image is the clean sprite.
+        # self.image is the one that gets drawn (and modified by effects).
+        self.base_image = self.frames[self.frame_index]
+        self.image = self.base_image.copy() # .copy() is essential
+        
         self.last_anim_update = pygame.time.get_ticks()
         self.anim_speed = self.stats.anim_speed
-        
-        # --- 4. Physics & Position ---
-        self.rect = self.image.get_rect(center=(x, y))
+
+        # --- 3. Physics & Position ---
         self.pos = pygame.math.Vector2(x, y)
         self.vel = pygame.math.Vector2(0, 0)
+        # self.rect is the VISUAL rect, used for drawing
+        self.rect = self.image.get_rect(center=(int(self.pos.x), int(self.pos.y)))
 
-        self.collision_box = pygame.Rect(
-            0, 0, 
-            self.FRAME_WIDTH * 0.5,
-            self.FRAME_HEIGHT * 0.5
-        )
+        # --- 4. Collision ---
+        # self.collision_box is the HITBOX rect, used for combat
+        default_w = int(self.rect.width * 0.3)
+        default_h = int(self.rect.height * 0.3)
+        self.collision_box = pygame.Rect(0, 0, default_w, default_h)
         self.collision_box.center = self.rect.center
+        
+        self.use_mask_collision = use_mask_collision
+        if use_mask_collision:
+            # (Your mask logic was fine)
+            if mask_path and os.path.exists(mask_path):
+                mask_image = pygame.image.load(mask_path).convert_alpha()
+                self.mask = pygame.mask.from_surface(mask_image)
+            else:
+                self.mask = pygame.mask.from_surface(self.frames[0])
+        else:
+            # We use the collision_box, so no mask is needed
+            self.mask = None 
 
-        # --- 5. AI & State ---
+        # --- 5. State ---
         self.target = None
         self.state = 'idle'
 
+        # --- 6. Combat ---
+        self.touch_damage_cooldown = 1.0
+        self.touch_damage_timer = 0.0 # Start ready to deal damage
+
+        # --- 7. Hit Effect (NEW) ---
+        self.isHit = False
+        self.hit_stun_duration = 0.3   # How long the enemy flashes
+        self.hit_stun_timer = 0.0
+        self.flash_interval = 0.1  # How fast it flashes
+        self.flash_timer = 0.0
+        self.flash_toggle = True
+
     def scale_to_player_level(self, level):
         scale_factor = 1 + (level - 1) * 0.15
-
         self.stats.max_health = int(self.stats.max_health * scale_factor)
         self.stats.attack_power = int(self.stats.attack_power * scale_factor)
         self.stats.defense = int(self.stats.defense * scale_factor)
         self.stats.xp_reward = int(self.stats.xp_reward * scale_factor)
-
         self.stats.current_health = self.stats.max_health
 
+    def take_damage(self, amount):
+        # Prevent chain-stunning
+        if self.isHit:
+            return
+            
+        damage_taken = max(1, amount - self.stats.defense)
+        self.stats.current_health -= damage_taken
+        
+        print(f"{self.stats.name} takes {damage_taken} damage, {self.stats.current_health} HP left.")
+        
+        # --- TRIGGER THE HIT EFFECT ---
+        if self.stats.current_health > 0:
+             self.isHit = True
+             self.hit_stun_timer = 0.0  # Reset timers
+             self.flash_timer = 0.0
+             self.flash_toggle = True   # Start flash "on"
 
+    def can_deal_touch_damage(self):
+        return self.touch_damage_timer <= 0
+
+    # --- BUG FIX: Deleted the duplicate deal_damage method ---
+    def deal_damage(self, player_target):
+        # 1. Reset the cooldown timer
+        self.touch_damage_timer = self.touch_damage_cooldown
+        
+        # 2. Deal the damage
+        damage = self.stats.attack_power
+        print(f"[COMBAT] {self.stats.name} collides with player for {damage} damage!")
+        player_target.take_damage(damage)
+        
     def update(self, dt, player):
-        """
-        The "brain" of the enemy. Handles animation, AI, and movement.
-        - dt: Delta time (time since last frame) for framerate-independent movement.
-        - player_rect: The rect of the player, for AI targeting.
-        - collision_objects: A list/group of rects to collide with (e.g., walls).
-        """
-
-        #Check for Death
+        # --- 1. Check for Death ---
         if self.stats.current_health <= 0:
             xp_drop = self.stats.xp_reward
+            self.particle_manager.create_death_explosion(self.pos.x, self.pos.y)
             self.kill()
             return xp_drop
             
+        self.image = self.base_image.copy()
+            
+        # --- 3. Update Timers ---
+        if self.touch_damage_timer > 0:
+            self.touch_damage_timer -= dt
+
         self.animate()
 
-        self.rect.center = (int(self.pos.x), int(self.pos.y))
-
-        self.collision_box.center = self.rect.center
-
-
-        # --- 3. Run AI Logic ---
-        # This is a simple state machine.
+        # --- 5. Run AI Logic ---
+        # BUG FIX: Deleted the redundant, duplicate AI block
         self.target = player.rect
         distance_to_target = self.pos.distance_to(self.target.center)
 
-        # State: Chasing
-        if distance_to_target <= self.stats.aggro_range and distance_to_target > self.stats.attack_range:
+        if distance_to_target <= self.stats.aggro_range:
             self.state = 'chasing'
-            
-            # Calculate direction vector to player
-            direction = (pygame.math.Vector2(self.target.center) - self.pos).normalize()
-            self.vel = direction * self.stats.speed
-        
-        # State: Attacking (close enough)
-        elif distance_to_target <= self.stats.attack_range:
-            self.state = 'attacking'
-            self.vel = pygame.math.Vector2(0, 0) # Stop moving
-            # --- TODO: Add attack logic here (e.g., start an attack timer) ---
-            # print(f"{self.stats.name} attacks!")
-
-        # State: Idle (too far)
+            try:
+                direction = (pygame.math.Vector2(self.target.center) - self.pos).normalize()
+                self.vel = direction * self.stats.speed
+            except ValueError:
+                self.vel = pygame.math.Vector2(0, 0) # On top of player
         else:
             self.state = 'idle'
-            self.vel = pygame.math.Vector2(0, 0) # Stop moving
+            self.vel = pygame.math.Vector2(0, 0)
             
-        # --- 4. Apply Movement ---
         self.pos += self.vel * dt
         self.rect.center = self.pos
-        
+        self.collision_box.center = self.rect.center
+
+        # --- 7. Handle Hit-Stun / Flashing ---
+        if self.isHit:
+            self.hit_stun_timer += dt
+            self.flash_timer += dt
+
+            if self.hit_stun_timer >= self.hit_stun_duration:
+                self.isHit = False
+                self.hit_stun_timer = 0
+                self.flash_timer = 0
+            else:
+                if self.flash_timer >= self.flash_interval:
+                    self.flash_timer = 0
+                    self.flash_toggle = not self.flash_toggle
+                
+                # Apply the white flash if toggled on
+                if self.flash_toggle:
+                    self.image.fill((150, 150, 150), special_flags=pygame.BLEND_RGB_ADD)
+
         return None
 
     def animate(self):
+        # This method now updates self.base_image, not self.image
         now = pygame.time.get_ticks()
+        
         if self.state == 'chasing': 
             if now - self.last_anim_update > self.anim_speed:
                 self.last_anim_update = now
                 self.frame_index = (self.frame_index + 1) % len(self.frames)
-                self.image = self.frames[self.frame_index]
-                # if self.vel.x < 0:
-                #    self.image = pygame.transform.flip(self.image, True, False)
+                self.base_image = self.frames[self.frame_index]
+                
+                # Flipping logic
+                if self.vel.x < 0:
+                   self.base_image = pygame.transform.flip(self.base_image, True, False)
         
-        # If idle, you might set it to the first frame
         elif self.state == 'idle':
             self.frame_index = 0
-            self.image = self.frames[self.frame_index]
+            self.base_image = self.frames[self.frame_index]

@@ -17,15 +17,6 @@ class MobStats:
         # --- Animation Stats ---
         self.anim_speed = anim_speed
 
-    def take_damage(self, amount):
-        damage_taken = max(0, amount - self.defense)
-        self.current_health -= damage_taken
-        
-        if self.current_health <= 0:
-            self.current_health = 0
-            return True
-        return False
-
 # --- 1. THE DATA ---
 # This is where you define all your different mob types.
 # We use a dictionary to store "blueprints" for the stats class.
@@ -37,7 +28,7 @@ MOB_DATA = {
         "defense": 2,
         "speed": 75,         # Moves 75 pixels/sec
         "aggro_range": 300,  # Sees player from 300px away
-        "attack_range": 40,  # Stops to attack at 40px
+        "attack_range": 25,  # Stops to attack at 40px
         "anim_speed": 150,    # Slower animation
         "xp_reward" : 50
     },
@@ -45,24 +36,14 @@ MOB_DATA = {
     "slime": {
         "name": "Slime",
         "max_health": 30,
-        "attack_power": 3,
+        "attack_power": 100,
         "defense": 5,
         "speed": 50,         # Moves 50 pixels/sec
         "aggro_range": 250,
         "attack_range": 30,
-        "anim_speed": 200    # Very slow animation
+        "anim_speed": 200 ,   # Very slow animation
+        "xp_reward" : 100
     },
-    # --- Add more mob types here ---
-    "dire_wolf": {
-        "name": "Dire Wolf",
-        "max_health": 70,
-        "attack_power": 10,
-        "defense": 3,
-        "speed": 120,        # Very fast
-        "aggro_range": 400,
-        "attack_range": 50,
-        "anim_speed": 80     # Fast animation
-    }
 }
 
 

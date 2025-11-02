@@ -31,10 +31,14 @@ class CharacterStats:
 
     def add_xp(self, amount):
         self.xp += amount
+        leveled_up = False
         while self.xp >= self.xp_to_next_level:
             # Leveled up!
             self.xp -= self.xp_to_next_level
-            self.level_up()
+            if self.level_up():
+                leveled_up = True
+        
+        return leveled_up
 
     def character_points(self):
         pass
@@ -44,5 +48,5 @@ class CharacterStats:
         print(f"Ding! Reached Level {self.level}")
         
         self.xp_to_next_level = 100 * self.level
-        
-        self.current_health = self.max_health
+        return True
+    
