@@ -72,7 +72,10 @@ def main():
     
     player = Character(WORLD_WIDTH // 2, WORLD_HEIGHT // 2)
 
-    particle_manager = ParticleManager()
+    hit_sound = pygame.mixer.Sound(r"Images\atk.mp3")
+    levelup_sound = pygame.mixer.Sound(r"Images\chest2.mp3")
+
+    particle_manager = ParticleManager(hit_sound=hit_sound, levelup=levelup_sound)
     player.set_particle_manager(particle_manager)
     player.set_groups(all_sprites, enemy_group)
 
