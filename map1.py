@@ -38,6 +38,7 @@ def update_camera(player_rect, camera_x, camera_y, SCREEN_W, SCREEN_H, MAP_W, MA
     return new_camera_x, new_camera_y
 
 def main():
+    pygame.mixer.pre_init(44100, -16, 2, 512)
     pygame.init()
 
     # --- Game Constants ---
@@ -72,7 +73,10 @@ def main():
     
     player = Character(WORLD_WIDTH // 2, WORLD_HEIGHT // 2)
 
-    particle_manager = ParticleManager()
+    hit_sound = pygame.mixer.Sound(r"Images\atk.mp3")
+    levelup_sound = pygame.mixer.Sound(r"Images\chest2.mp3")
+
+    particle_manager = ParticleManager(hit_sound=hit_sound, levelup=levelup_sound)
     player.set_particle_manager(particle_manager)
     player.set_groups(all_sprites, enemy_group)
 
@@ -116,6 +120,8 @@ def main():
         print(f"Error loading HP image: {e}")
         hp_image = pygame.Surface((40, 40))
         hp_image.fill((255, 0, 255))
+
+
 
     running = True
     while running:

@@ -102,6 +102,9 @@ class ParticleManager:
         # Create a few small splats
         for _ in range(random.randint(2, 4)):
             self.particles.add(HitSplat(x, y))
+        
+        if hasattr(self, "hit_sound") and self.hit_sound:
+            self.hit_sound.play()
     
     def create_death_explosion(self, x, y):
         # Create a big burst
@@ -126,3 +129,5 @@ class ParticleManager:
         for _ in range(random.randint(60, 90)): # Was 30-50
             color = random.choice(colors)
             self.particles.add(DeathBurst(x, y, color=color))
+        if self.levelup_sound:
+            self.levelup_sound.play()
