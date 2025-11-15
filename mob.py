@@ -49,14 +49,12 @@ class Enemy(pygame.sprite.Sprite):
     def __init__(self, x, y, frames_folder_path, mob_type, scale, player_level, particle_manager, use_mask_collision=False, mask_path=None):
         super().__init__()
 
-        # --- 1. Stats ---
         self.stats = get_stats(mob_type)
         if self.stats is None:
             raise ValueError(f"Failed to get stats for mob_type: {mob_type}")
         self.scale_to_player_level(player_level)
         self.particle_manager = particle_manager
 
-        # --- 2. Animation ---
         self.frames = load_frames_from_folder(frames_folder_path, scale)
         if not self.frames:
             print(f"--- FATAL: No frames loaded for Enemy at {frames_folder_path} ---")
@@ -66,23 +64,17 @@ class Enemy(pygame.sprite.Sprite):
         
         self.frame_index = 0
         
-        # --- STRUCTURAL FIX: Base vs. Drawn Image ---
-        # self.base_image is the clean sprite.
-        # self.image is the one that gets drawn (and modified by effects).
         self.base_image = self.frames[self.frame_index]
-        self.image = self.base_image.copy() # .copy() is essential
+        self.image = self.base_image.copy()
         
         self.last_anim_update = pygame.time.get_ticks()
         self.anim_speed = self.stats.anim_speed
 
-        # --- 3. Physics & Position ---
+
         self.pos = pygame.math.Vector2(x, y)
         self.vel = pygame.math.Vector2(0, 0)
-        # self.rect is the VISUAL rect, used for drawing
         self.rect = self.image.get_rect(center=(int(self.pos.x), int(self.pos.y)))
 
-        # --- 4. Collision ---
-        # self.collision_box is the HITBOX rect, used for combat
         default_w = int(self.rect.width * 0.3)
         default_h = int(self.rect.height * 0.3)
         self.collision_box = pygame.Rect(0, 0, default_w, default_h)
@@ -90,29 +82,25 @@ class Enemy(pygame.sprite.Sprite):
         
         self.use_mask_collision = use_mask_collision
         if use_mask_collision:
-            # (Your mask logic was fine)
             if mask_path and os.path.exists(mask_path):
                 mask_image = pygame.image.load(mask_path).convert_alpha()
                 self.mask = pygame.mask.from_surface(mask_image)
             else:
                 self.mask = pygame.mask.from_surface(self.frames[0])
         else:
-            # We use the collision_box, so no mask is needed
             self.mask = None 
 
-        # --- 5. State ---
         self.target = None
         self.state = 'idle'
 
-        # --- 6. Combat ---
-        self.touch_damage_cooldown = 1.0
-        self.touch_damage_timer = 0.0 # Start ready to deal damage
 
-        # --- 7. Hit Effect (NEW) ---
+        self.touch_damage_cooldown = 1.0
+        self.touch_damage_timer = 0.0 
+
         self.isHit = False
-        self.hit_stun_duration = 0.3   # How long the enemy flashes
+        self.hit_stun_duration = 0.3 
         self.hit_stun_timer = 0.0
-        self.flash_interval = 0.1  # How fast it flashes
+        self.flash_interval = 0.1
         self.flash_timer = 0.0
         self.flash_toggle = True
 
@@ -134,7 +122,6 @@ class Enemy(pygame.sprite.Sprite):
         
         print(f"{self.stats.name} takes {damage_taken} damage, {self.stats.current_health} HP left.")
         
-        # --- TRIGGER THE HIT EFFECT ---
         if self.stats.current_health > 0:
              self.isHit = True
              self.hit_stun_timer = 0.0  # Reset timers
@@ -144,18 +131,15 @@ class Enemy(pygame.sprite.Sprite):
     def can_deal_touch_damage(self):
         return self.touch_damage_timer <= 0
 
-    # --- BUG FIX: Deleted the duplicate deal_damage method ---
     def deal_damage(self, player_target):
-        # 1. Reset the cooldown timer
+
         self.touch_damage_timer = self.touch_damage_cooldown
-        
-        # 2. Deal the damage
+
         damage = self.stats.attack_power
         print(f"[COMBAT] {self.stats.name} collides with player for {damage} damage!")
         player_target.take_damage(damage)
         
     def update(self, dt, player):
-        # --- 1. Check for Death ---
         if self.stats.current_health <= 0:
             xp_drop = self.stats.xp_reward
             self.particle_manager.create_death_explosion(self.pos.x, self.pos.y)
@@ -164,14 +148,11 @@ class Enemy(pygame.sprite.Sprite):
             
         self.image = self.base_image.copy()
             
-        # --- 3. Update Timers ---
         if self.touch_damage_timer > 0:
             self.touch_damage_timer -= dt
 
         self.animate()
-
-        # --- 5. Run AI Logic ---
-        # BUG FIX: Deleted the redundant, duplicate AI block
+        
         self.target = player.rect
         distance_to_target = self.pos.distance_to(self.target.center)
 
@@ -190,7 +171,7 @@ class Enemy(pygame.sprite.Sprite):
         self.rect.center = self.pos
         self.collision_box.center = self.rect.center
 
-        # --- 7. Handle Hit-Stun / Flashing ---
+
         if self.isHit:
             self.hit_stun_timer += dt
             self.flash_timer += dt
