@@ -179,11 +179,11 @@ class Character(pygame.sprite.Sprite):
                 hit_cooldown=self.active_weapon.hit_cooldown,
                 image=image,
                 start_angle=start_angle,
-                particle_manager=self.particle_manager, # Pass refs
-                enemy_group=self.enemy_group           # Pass refs
+                particle_manager=self.particle_manager, 
+                enemy_group=self.enemy_group    
             )
             self.orbitals.add(node)
-            self.all_sprites_group.add(node) # Add to main draw group!
+            self.all_sprites_group.add(node) 
             
         print(f"Equipped {self.active_weapon.name} with {count} nodes.")
 
@@ -314,8 +314,6 @@ class Character(pygame.sprite.Sprite):
                 if not self.flash_toggle:
                     self.image.fill((170, 170, 170), special_flags=pygame.BLEND_RGB_ADD)
                 
-                # (If self.flash_toggle is True, we do nothing,
-                #  letting the normal sprite from section 4 draw)
 
         else:
             if self.image.get_alpha() != 255:
