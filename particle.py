@@ -2,9 +2,6 @@ import pygame
 import random
 import math
 
-# --- Base Particle Class ---
-# We use a base class so all particles share
-# an update/draw structure.
 class Particle(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
@@ -77,7 +74,6 @@ class DeathBurst(Particle):
 # This one object will control all world particles.
 class ParticleManager:
     def __init__(self, hit_sound =None, levelup = None):
-        # We use a set for faster removals
         self.particles = set()
         self.hit_sound = hit_sound
         self.levelup_sound = levelup
@@ -90,7 +86,6 @@ class ParticleManager:
             if not is_alive:
                 dead_particles.add(particle)
         
-        # Now we remove the dead ones
         self.particles.difference_update(dead_particles)
 
     def draw(self, surface, camera_x, camera_y):
