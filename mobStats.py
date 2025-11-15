@@ -14,12 +14,8 @@ class MobStats:
         self.aggro_range = aggro_range
         self.attack_range = attack_range
         
-        # --- Animation Stats ---
         self.anim_speed = anim_speed
 
-# --- 1. THE DATA ---
-# This is where you define all your different mob types.
-# We use a dictionary to store "blueprints" for the stats class.
 MOB_DATA = {
     "bunny": {
         "name": "bunny",
@@ -57,6 +53,4 @@ def get_stats(mob_type):
 
     stats_dict = MOB_DATA[mob_type]
     
-    # Create a new MobStats *instance* using the data
-    # The ** unpacks the dictionary into keyword arguments
     return MobStats(**stats_dict)
