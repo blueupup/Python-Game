@@ -16,7 +16,6 @@ class MeleeHitbox(pygame.sprite.Sprite):
         width = int(self.weapon.attack_range * 0.75)
         height = int(self.weapon.attack_range * 1.5)
         
-        # We make it invisible. It's for collision, not drawing.
         self.image = pygame.Surface((width, height), pygame.SRCALPHA)
         self.image.fill((0, 0, 0, 0))
         
