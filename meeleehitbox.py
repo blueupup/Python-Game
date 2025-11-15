@@ -13,7 +13,6 @@ class MeleeHitbox(pygame.sprite.Sprite):
         self.life_timer = 0.15   # How long the hitbox lasts (in seconds)
         
         # --- Create the hitbox rect ---
-        # We use a simple rect. Arc logic is too complex.
         width = int(self.weapon.attack_range * 0.75)
         height = int(self.weapon.attack_range * 1.5)
         
@@ -49,7 +48,6 @@ class MeleeHitbox(pygame.sprite.Sprite):
             # Check if we've already hit this enemy
             if enemy not in self.hit_enemies:
                 
-                # --- [HIT!] ---
                 # 1. Add to "hit list" to prevent double-hits
                 self.hit_enemies.add(enemy)
                 
